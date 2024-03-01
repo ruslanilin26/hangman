@@ -16,9 +16,9 @@ class GameHandler extends Thread {
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out = new PrintWriter(socket.getOutputStream(), true);
         word = chooseWord();
-        health = 5;
+        health = 7;
         wordInProgress = new char[word.length()];
-        Arrays.fill(wordInProgress, '_');
+        Arrays.fill(wordInProgress, '*');
         guesses = new HashSet<>();
     }
 
@@ -36,7 +36,7 @@ class GameHandler extends Thread {
 
                 String line = in.readLine();
 
-                if (line == null || line.length() != 1 || line.contains("0")) continue;
+                if (line == null || line.length() != 1) continue;
 
                 if (line.contains("1")) {
                     restartGame();
@@ -94,9 +94,9 @@ class GameHandler extends Thread {
     }
     private void restartGame() {
         word = chooseWord();
-        health = 5;
+        health = 7;
         wordInProgress = new char[word.length()];
-        Arrays.fill(wordInProgress, '_');
+        Arrays.fill(wordInProgress, '*');
         guesses.clear();
     }
 
