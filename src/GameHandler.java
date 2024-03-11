@@ -12,11 +12,13 @@ class GameHandler extends Thread {
     private Set<Character> guesses;
     private static String nickname;
     private static int userScore;
+    private int difficult;
     public GameHandler(Socket socket) throws IOException {
         this.socket = socket;
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out = new PrintWriter(socket.getOutputStream(), true);
-        word = chooseWord();
+        difficult = 2;
+        word = chooseWord(difficult);
         health = 7;
         wordInProgress = new char[word.length()];
         Arrays.fill(wordInProgress, '*');
@@ -28,16 +30,17 @@ class GameHandler extends Thread {
         out.println("Попробуйте угадать слово.");
         out.println("У вас " + health + " попыток");
         out.println(new String(wordInProgress));
-
         try {
             while (true) {
                 if(word.equals(new String(wordInProgress))){
                     changeScore(true, nickname);
-                    out.println("Поздравляем! Вы угадали слово!");
+                    out.println("Поздравляем! Вы угадали слово! Это - " + word);
                     out.println("Ваш счет - " + userScore);
                     out.println("Это лучше, чем у " + printScore(nickname) + "% игроков");
                 }
+
                 String line = in.readLine();
+
                 if (line == null) continue;
 
                 if(line.contains("*")){
@@ -45,11 +48,22 @@ class GameHandler extends Thread {
                         restartGame();
                         printRating();
                     }
+                    else if(line.contains("Легкая")){
+                        restartGame();
+                        difficult = 1;
+                    }
+                    else if(line.contains("Средняя")){
+                        restartGame();
+                        difficult = 2;
+                    }
+                    else if(line.contains("Трудная")){
+                        restartGame();
+                        difficult = 3;
+                    }
                     else{
                         nickname = line.substring(1);
                         writeNicknameToFile(nickname);
                     }
-
                 }
                 else if(line.length() != 1){
                     continue;
@@ -81,6 +95,7 @@ class GameHandler extends Thread {
                         }
                         if (correct) {
                             out.println("Верно!   \n" + new String(wordInProgress));
+                            sendGuesses();
                         }
                         else {
                             health--;
@@ -95,6 +110,7 @@ class GameHandler extends Thread {
                                 out.println(new String(wordInProgress));
                             }
                         }
+                        sendGuesses();
                     }
                 }
             }
@@ -114,7 +130,7 @@ class GameHandler extends Thread {
         }
     }
     private void restartGame() {
-        word = chooseWord();
+        word = chooseWord(difficult);
         health = 7;
         wordInProgress = new char[word.length()];
         Arrays.fill(wordInProgress, '*');
@@ -124,12 +140,14 @@ class GameHandler extends Thread {
         try (BufferedReader reader = new BufferedReader(new FileReader("nicknames.txt"))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.startsWith(nickname + " ")) {
-                    int startIndex = line.indexOf(" ") + 1;
-                    int endIndex = line.indexOf(".", startIndex);
-                    String numberStr = line.substring(startIndex, endIndex).trim();
-                    userScore = Integer.parseInt(numberStr);
-                    return true;
+                String[] parts = line.split(" ");
+                if (parts.length == 2) {
+                    String name = parts[0];
+                    int score = Integer.parseInt(parts[1].replace(".", ""));
+                    if (name.equals(nickname)){
+                        userScore = score;
+                        return true;
+                    }
                 }
             }
         } catch (IOException e) {
@@ -153,25 +171,26 @@ class GameHandler extends Thread {
             StringBuilder result = new StringBuilder();
             String line;
             while ((line = fileReader.readLine()) != null) {
-                if (line.contains(nickname)) {
-                    int startIndex = line.indexOf(" ") + 1;
-                    int endIndex = line.indexOf(".", startIndex);
-                    String numberStr = line.substring(startIndex, endIndex).trim();
-                    int originalNumber = Integer.parseInt(numberStr);
-                    int newNumber;
-                    if(game_result) {
-                        newNumber = originalNumber + 5;
-                        userScore = newNumber;
-                    }
-                    else{
-                        newNumber = originalNumber - 10;
-                        userScore = newNumber;
-                        if (newNumber < 0){
-                            newNumber = 0;
+                String[] parts = line.split(" ");
+                if (parts.length == 2) {
+                    String name = parts[0];
+                    int score = Integer.parseInt(parts[1].replace(".", ""));
+                    if (name.equals(nickname)){
+                        int newNumber;
+                        if(game_result) {
+                            newNumber = score + 5;
                             userScore = newNumber;
                         }
+                        else{
+                            newNumber = score - 10;
+                            userScore = newNumber;
+                            if (newNumber < 0){
+                                newNumber = 0;
+                                userScore = newNumber;
+                            }
+                        }
+                        line = line.replace(String.valueOf(score), String.valueOf(newNumber));
                     }
-                    line = line.replace(numberStr, String.valueOf(newNumber));
                 }
                 result.append(line).append("\n");
             }
@@ -205,7 +224,7 @@ class GameHandler extends Thread {
         } catch (IOException | NumberFormatException e) {
             e.printStackTrace();
         }
-        return ((double) ifcounter /counter)*100;
+        return Math.round(((double) ifcounter /counter)*100);
     }
 
     private void printRating(){
@@ -222,9 +241,28 @@ class GameHandler extends Thread {
         }
     }
 
-    private String chooseWord() {
-        String[] words = {"виселица", "игра", "победа"};
-        int randomWordIndex = new Random().nextInt(words.length);
-        return words[randomWordIndex];
+    private void sendGuesses(){
+        String responde = "Эти буквы вы уже пробовали: " + guesses.toString();
+        out.println(responde);
+    }
+
+    private String chooseWord(int difficult) {
+        String[] wordsEasy = {"кот", "дом", "лес", "море", "нос", "рука", "окно", "луна", "цвет", "глаз"};
+        String[] wordsMedium = {"зеркало", "птица", "банан", "гитара", "книга", "камень", "берег", "слон", "звезда", "автомобиль"};
+        String[] wordsHard = {"аппаратура", "экзамен", "гипотеза", "резонанс", "электроника", "трансформатор", "конгломерат", "катастрофа", "коллапс", "перспектива"};
+        int randomWordIndex = 0;
+        if(difficult == 1){
+            randomWordIndex = new Random().nextInt(wordsEasy.length);
+            return wordsEasy[randomWordIndex];
+        }
+        if(difficult == 2){
+            randomWordIndex = new Random().nextInt(wordsMedium.length);
+            return wordsMedium[randomWordIndex];
+        }
+        if(difficult == 3){
+            randomWordIndex = new Random().nextInt(wordsHard.length);
+            return wordsHard[randomWordIndex];
+        }
+        else return null;
     }
 }
