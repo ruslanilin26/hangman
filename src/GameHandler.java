@@ -12,7 +12,7 @@ class GameHandler extends Thread {
     private Set<Character> guesses;
     private static String nickname;
     private static int userScore;
-    private int difficult;
+    private static int difficult;
     public GameHandler(Socket socket) throws IOException {
         this.socket = socket;
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -176,18 +176,33 @@ class GameHandler extends Thread {
                     String name = parts[0];
                     int score = Integer.parseInt(parts[1].replace(".", ""));
                     if (name.equals(nickname)){
-                        int newNumber;
+                        int newNumber = 0;
                         if(game_result) {
-                            newNumber = score + 5;
+                            if(difficult == 1){
+                                newNumber = score + 5;
+                            }
+                            if(difficult == 2){
+                                newNumber = score + 10;
+                            }
+                            if(difficult == 3){
+                                newNumber = score + 15;
+                            }
                             userScore = newNumber;
                         }
                         else{
-                            newNumber = score - 10;
-                            userScore = newNumber;
+                            if(difficult == 1){
+                                newNumber = score - 5;
+                            }
+                            if(difficult == 2){
+                                newNumber = score - 10;
+                            }
+                            if(difficult == 3){
+                                newNumber = score - 15;
+                            }
                             if (newNumber < 0){
                                 newNumber = 0;
-                                userScore = newNumber;
                             }
+                            userScore = newNumber;
                         }
                         line = line.replace(String.valueOf(score), String.valueOf(newNumber));
                     }
